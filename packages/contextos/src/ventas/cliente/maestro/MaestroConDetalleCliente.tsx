@@ -12,6 +12,7 @@ import { metaFiltroCliente, metaTablaCliente } from "./diseño.ts";
 import { TarjetaCliente } from "./TarjetaCliente.tsx";
 import "./MaestroConDetalleCliente.css";
 import { getMaquina } from "./maquina.ts";
+import { getTasasConversion } from "../../../comun/divisa/infraestructura.ts";
 
 export const MaestroConDetalleCliente = () => {
   const { id, criteria } = getUrlParams();
@@ -48,6 +49,8 @@ export const MaestroConDetalleCliente = () => {
                   <QBoton onClick={() => emitir("creacion_solicitada")}>
                     Nuevo Cliente
                   </QBoton>
+
+                  <QBoton onClick={consultarDivisas}>Consultar divisas</QBoton>
                 </div>
               )}
               onSeleccion={(payload) => emitir("cliente_seleccionado", payload)}
@@ -73,4 +76,13 @@ export const MaestroConDetalleCliente = () => {
       )}
     </div>
   );
+};
+
+const consultarDivisas = async () => {
+  try {
+    const tasas = await getTasasConversion();
+    console.log("Tasas de conversión:", tasas);
+  } catch (error) {
+    console.error("Error al consultar las divisas:", error);
+  }
 };

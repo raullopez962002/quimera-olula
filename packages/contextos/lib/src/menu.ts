@@ -1,11 +1,13 @@
-import { plugin } from "./dominio.ts";
+import { moduloBloqueadoEnUrl, plugin } from "./dominio.ts";
 
 export interface ElementoMenuBase {
     nombre: string;
     icono?: string;
     regla?: string | string[];
-    /** Plugins que deben estar activos para mostrar la entrada (todos). */
-    plugin?: string | string[];
+    /** Plugins que pide la entrada (todos). Un nombre suelto exige el estado
+     *  "activo"; un objeto { nombre: estados } exige que el plugin esté en
+     *  alguno de esos estados (p.ej. { estado_expedicion_factura: ["firma", "emision"] }). */
+    plugin?: string | string[] | Record<string, string | string[]>;
     color?: string;
     variant?: string;
     posicion?: number;
@@ -41,8 +43,38 @@ export const crearMenu = (factory: Record<string, MenuContextFactory>) => {
 
     itemsAgrupados.sort((a, b) => (a.posicion ?? Infinity) - (b.posicion ?? Infinity));
 
-    return itemsAgrupados as ElementoMenu[];
+    return (itemsAgrupados as ElementoMenu[]).map(conReglaEnResumen);
 };
+const esResumen = (e: ElementoMenuBase) => !!(e as Partial<ElementoMenuHijo>).url?.startsWith("/dashboard/");
+
+/**
+ * El «Resumen» (dashboard) de un módulo no tiene regla propia: se ve si se puede
+ * alguna de las demás opciones del módulo. Sin esto, un grupo que sólo tiene
+ * permitido Ventas seguía viendo Almacén, Compras, CRM o Tesorería con su Resumen.
+ */
+export const conReglaEnResumen = (elemento: ElementoMenu): ElementoMenu => {
+    if (!("subelementos" in elemento) || !elemento.subelementos?.length) return elemento;
+    const reglasModulo = [...new Set(elemento.subelementos
+        .filter((e) => !esResumen(e))
+        .flatMap((e) => (e.regla === undefined ? [] : [e.regla].flat())))];
+    if (!reglasModulo.length) return elemento;
+    return {
+        ...elemento,
+        subelementos: elemento.subelementos.map((e) =>
+            esResumen(e) && e.regla === undefined ? { ...e, regla: reglasModulo } : e),
+    };
+};
+
 /** Los plugins que pide la entrada están activos en esta instalación (whoami). */
-export const pluginsActivos = (e: ElementoMenuBase): boolean =>
-    !e.plugin || [e.plugin].flat().every((nombre) => plugin(nombre) === "activo");
+export const pluginsActivos = (e: ElementoMenuBase): boolean => {
+    if (!e.plugin) return true;
+    if (typeof e.plugin === "string" || Array.isArray(e.plugin))
+        return [e.plugin].flat().every((nombre) => plugin(nombre) === "activo");
+    return Object.entries(e.plugin).every(([nombre, estados]) =>
+        [estados].flat().includes(plugin(nombre))
+    );
+};
+
+/** SaaS: la entrada no es de un módulo que la empresa no tiene contratado. */
+export const disponibleEnSaas = (e: ElementoMenuBase): boolean =>
+    !("url" in e) || typeof e.url !== "string" || !moduloBloqueadoEnUrl(e.url);

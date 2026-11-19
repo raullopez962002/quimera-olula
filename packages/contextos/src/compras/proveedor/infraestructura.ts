@@ -1,4 +1,3 @@
-import { empresaActual } from "#/valores/empresaActual.ts";
 import { RestAPI } from "@olula/lib/api/rest_api.ts";
 import { normalizarIban } from "@olula/lib/iban.ts";
 import ApiUrls from "../comun/urls.ts";
@@ -66,6 +65,7 @@ interface NuevoProveedorApi {
     id_fiscal: string;
     tipo_id_fiscal: string;
     empresa_id: string;
+    direccion?: Omit<DireccionApi, "pais">;
 }
 
 interface CambiosProveedorApi {
@@ -160,7 +160,8 @@ const nuevoProveedorAApi = (p: NuevoProveedor): NuevoProveedorApi => ({
     nombre: p.nombre,
     id_fiscal: p.idFiscal,
     tipo_id_fiscal: p.tipoIdFiscal,
-    empresa_id: empresaActual(),
+    empresa_id: p.empresaId,
+    ...(p.direccion ? { direccion: direccionAApi(p.direccion) } : {}),
 });
 
 const cambiosProveedorAApi = (p: CambiosProveedor): CambiosProveedorApi => {
